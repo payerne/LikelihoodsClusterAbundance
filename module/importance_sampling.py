@@ -44,79 +44,47 @@ def compute_position_from_distribution(ndim = 2, pdf = None, pdf_max = 1, N_poin
     print(f"acceptance = {acceptance}")
     return random_samples, pdf_val
 
-def compute_model(pos, model = None, mp = False): 
-    """
-    Attributes:
-    ===========
-    pos: array
-        position of the random samples
-    model: fct
-        model to tabulate
-    Returns:
-    ========
-    model_tab: array
-        tabulated model
-    """
-    if mp == False:
-        pos_array = np.array(pos).T
-        m0 = model(pos_array[0])
-        model_tab = np.zeros((pos_array.shape[0],) + m0.shape)
-        #loop over individual values
-        for index, pos in zip(np.arange(len(pos_array)), pos_array):
-            model_tab[index,:] = model(pos)
-        return np.array(model_tab)
-    if mp == True:
-        #use python multiprocessing
-        global f
-        def f(n): return model(pos[n])
-        return utils.map(f, np.arange(len(pos)), ordered=True)
-
-def compute_posterior(posterior = None, model_tab = None, data = None, mp = False): 
-    """
-    Attributes:
-    ===========
-    pos: array
-        position of the random samples
-    model_tab: fct
-        tabulated model over the random samples
-    posterior: fct
-        posterior to be tabulated
-    Returns:
-    ========
-    posterior_tab: array
-        tabulated posterior
-    """
-    if mp == False:
-        posterior_tab = []
-        for model in model_tab:
-            posterior_tab.append(posterior(model, data))
-        return np.array(posterior_tab)
-    if mp == True:
-        global p
-        iter = np.arange(len(model_tab))
-        def p(n): return posterior(model_tab[n], data)
-        return utils.map(p, iter, ordered=True)
-
-def compute_mean_and_dispersion(pos, weights):
+def compute_mean_covariance_importance_sampling(lnposterior, Nobs, Nth, 
+                                                Om=None, s8=None, q_val=None, 
+                                                mp=False, browse=False):
     r"""
-    Attrubutes:
+    compute posterior on importance sampling proposal
+    Attributes:
     -----------
-    pos: array
-        positions on the parameter space
-    weights: array
-        weights
-    Returns: 
+    lnposterior: fct
+        posterior
+    Nobs: array
+        observed cluster abundance
+    Om: array
+        Om samples
+    s8: array
+        s8 samples
+    q_val: array
+        proposal values
+    mp: Bool
+        use multiprocessing or not
+    browse: Bool
+        use browse or not
+    Returns:
     --------
-    means, dispersions: array, array
-        means, and dispersions for the parameters
+    meanOm, means8, cov: float, float, array
+        mean Om, mean s8, covariance of Om & s8
     """
-    pos_shape = pos.shape
-    n_param = pos_shape[1]
-    means = np.zeros(n_param)
-    dispersions = np.zeros(n_param)
-    for i in range(n_param):
-        x = pos[:,i]
-        means[i] = utils.weightedav(pos[:,i], w=weights)
-        dispersions[i] = utils.weightedvar(pos[:,i], w=weights)
-    return means, dispersions
-
+    n_points=len(Nth)
+    if browse==False:
+        global func
+        def func(n_iter): return lnposterior(Nth[n_iter], Nobs)
+        if mp==True:
+            lnposterior_tab=np.array(utils.map(func, np.arange(n_points), 
+                                                  ordered=True))
+        elif mp==False:
+            lnposterior_tab=np.array([func(n_iter) for n_iter in range(n_points)])
+        res=lnposterior_tab
+        res=res-np.median(res)
+        w=np.exp(res)/q_val
+        w=w/np.max(w)
+        mask = np.invert(np.isnan(w))
+        return utils.compute_mean_dispersion_from_sample(np.array(Om)[mask], 
+                                                         np.array(s8)[mask], 
+                                                         np.array(w)[mask])
+    else: return print('not implemented yet')
