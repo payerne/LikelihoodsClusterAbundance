@@ -1,12 +1,11 @@
 import numpy as np
 import utils
 
-r"""
-Fisher matrix:
-lnL = .5*Fisher^(-1)_{ij} dx_i dy_j + perturbative terms (non-gaussian)
-"""
-class forecast():
-    
+class Forecast():
+    r"""
+    Fisher matrix:
+    lnL = .5*Fisher^(-1)_{ij} dx_i dy_j + perturbative terms (non-gaussian)
+    """
     def Fisher_Matrix_Gaussian(self, theta, model, cov, delta = 1e-5):
         r"""
         Attributes:
@@ -22,14 +21,29 @@ class forecast():
         Fisher_matrix : array
             the Fisher matrix for the model parameters
        """
+        inv_cov=np.linalg.inv(cov)
         Fisher_matrix = np.zeros([len(theta), len(theta)])
         shape_model = cov.diagonal().shape
         fd = first_derivative(theta, model, shape_model, delta = 1e-5)
         self.fd = fd
         for i in range(len(theta)):
             for j in range(len(theta)):
-                Fisher_matrix[i,j] = np.sum(fd[i] * np.linalg.inv(cov).dot(fd[j]))
+                Fisher_matrix[i,j] = np.sum(fd[i]*inv_cov.dot(fd[j]))
         return Fisher_matrix
+    
+    def Fisher_XY(self, SigmaX, SigmaY, d_model):
+        r"""
+        X: true
+        Y: input
+        d_model: model derivatives
+        
+        """
+        SigmaY_1 = np.linalg.inv(SigmaY)
+        res=np.zeros([2,2])
+        for i in range(2):
+            for j in range(2):
+                res[i,j] = np.sum(d_model[i,:] * np.dot(SigmaY_1, np.dot(SigmaX, SigmaY_1) ).dot(d_model[j,:]))
+        return res
 
     def S_Fisher_Matrix(self, theta, model, cov, delta = 1e-5):
 
@@ -113,6 +127,24 @@ class forecast():
         lnL_Q_Gaussian = -(1./8.)*Q
 
         return lnL_Q_Gaussian
+    
+def cov_Frequentist(cov_Bayesian, d_model, Sigma):
+    r"""
+    compute frequentist covariance matrix
+    Attributes:
+    -----------
+    cov_Bayesian: Bayesian covariance matrix
+    d_model: 
+    """
+    cov_freq=np.zeros([2,2])
+    for i in range(2):
+        for j in range(2): 
+            aT=0
+            for k in range(2): aT+=cov_Bayesian[i,k]*d_model[k]
+            a=0
+            for k in range(2): a+=cov_Bayesian[j,k]*d_model[k]
+            cov_freq[i,j] = np.sum(aT.flatten()*Sigma.dot(a.flatten()))
+    return cov_freq
 
 def first_derivative(theta, model, shape_model, delta = 1e-5):
     r"""
