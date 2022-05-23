@@ -31,7 +31,7 @@ class Forecast():
                 Fisher_matrix[i,j] = np.sum(fd[i]*inv_cov.dot(fd[j]))
         return Fisher_matrix
     
-    def Fisher_XY(self, SigmaX, SigmaY, d_model):
+    def Fisher_Matrix_Gaussian_XY(self, SigmaX, SigmaY, d_model):
         r"""
         X: true
         Y: input
