@@ -8,7 +8,7 @@ global func
 
 def binning(corner): return [[corner[i],corner[i+1]] for i in range(len(corner)-1)]
 
-def _make_ellipse(mean, cov, ax, level=0.95, color=None, label = None, ls = '-'):
+def _make_ellipse(mean, cov, ax, level=0.95, color=None, label = None, ls = '-', facecolor = 'none', alpha=1):
     n_sigma = 2
     v, w = np.linalg.eigh(cov)
     u = w[0] / np.linalg.norm(w[0])
@@ -19,7 +19,7 @@ def _make_ellipse(mean, cov, ax, level=0.95, color=None, label = None, ls = '-')
         n=n+1
         ell = Ellipse(mean, 2 * n * v[0] ** 0.5, 2 * n * v[1] ** 0.5,
                                   180 + angle,
-                                  linewidth=2, facecolor = 'none',edgecolor=color, ls = ls)
+                                  linewidth=2, facecolor = facecolor,edgecolor=color, alpha=alpha,ls = ls)
         if n==1:
             ax.plot([],[],ls,color = color, label = label)
         ax.add_artist(ell)

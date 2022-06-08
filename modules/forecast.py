@@ -1,11 +1,16 @@
 import numpy as np
 import utils
+import pyccl as ccl
+from scipy.integrate import simps
 
 class Forecast():
     r"""
     Fisher matrix:
     lnL = .5*Fisher^(-1)_{ij} dx_i dy_j + perturbative terms (non-gaussian)
     """
+    def __init__(self):
+        return None
+    
     def Fisher_Matrix_Gaussian(self, theta, model, cov, delta = 1e-5):
         r"""
         Attributes:
@@ -127,6 +132,60 @@ class Forecast():
         lnL_Q_Gaussian = -(1./8.)*Q
 
         return lnL_Q_Gaussian
+    
+    def Fisher_matrix_unbinned_Poissonian(self, theta, Z_bin, logMass_bin, CA):
+        r"""
+        z_min, z_max = Z_bin
+        logm_min, logm_max = logMass_bin
+        """
+        def model_Ntot(theta):
+            Omegab = 0.048254
+            Omegam, sigma8 = theta
+            cosmo_new = ccl.Cosmology(Omega_c = Omegam - Omegab, Omega_b = Omegab, h = 0.71, sigma8 = sigma8, n_s=0.96)
+            massdef_new = ccl.halos.massdef.MassDef('vir', 'critical', c_m_relation=None)
+            hmd_new = ccl.halos.MassFuncDespali16(cosmo_new, mass_def=massdef_new)
+            CA.set_cosmology(cosmo = cosmo_new, hmd = hmd_new, massdef = massdef_new)
+            CA.compute_multiplicity_grid_MZ(z_grid = CA.z_grid, logm_grid = CA.logm_grid)
+            N_th = CA.Cluster_Abundance_MZ(Redshift_bin = [[z_min, z_max]], 
+                                           Proxy_bin = [[logm_min, logm_max]], method = 'simps')
+            return N_th[0][0]
+
+        def model_grid_ln(theta):
+            Omegab = 0.048254
+            Omegam, sigma8 = theta
+            cosmo_new = ccl.Cosmology(Omega_c = Omegam - Omegab, Omega_b = Omegab, h = 0.71, sigma8 = sigma8, n_s=0.96)
+            massdef_new = ccl.halos.massdef.MassDef('vir', 'critical', c_m_relation=None)
+            hmd_new = ccl.halos.MassFuncDespali16(cosmo_new, mass_def=massdef_new)
+            CA.set_cosmology(cosmo = cosmo_new, hmd = hmd_new, massdef = massdef_new)
+            CA.compute_multiplicity_grid_MZ(z_grid = CA.z_grid, logm_grid = CA.logm_grid)
+            return np.log(CA.sky_area * CA.dN_dzdlogMdOmega)
+
+        N_th_cosmo_true_unbinned = model_Ntot(theta)
+        def av_ln_multiplicity_n(theta, model, delta = 1e-5):
+            model_true = np.exp(model(theta))
+            pdf = model_true/N_th_cosmo_true_unbinned
+            index_z_grid = np.arange(len(CA.z_grid))
+            index_logm_grid = np.arange(len(CA.logm_grid))
+            mask_z = (CA.z_grid > z_min)*(CA.z_grid < z_max)
+            mask_logm = (CA.logm_grid > logm_min)*(CA.logm_grid < logm_max)
+            index_z_mask = index_z_grid[mask_z]
+            index_logm_mask = index_logm_grid[mask_logm]
+            res = np.zeros([len(theta),len(theta)])
+            sec_derivative = second_derivative(theta, model_grid_ln, model_true.shape)
+            for i in range(len(theta)):
+                for j in range(len(theta)):
+                    if i >= j:
+                        integrand = sec_derivative[i,j] * pdf
+                        integrand_cut = np.array([integrand[:,i][mask_logm] for i in index_z_mask])
+                        res[i,j] = simps(simps(integrand_cut, CA.logm_grid[mask_logm]), CA.z_grid[mask_z])
+                        res[j,i] = res[i,j]
+            return  res 
+
+        Ntot_second_derivative = second_derivative(theta, model_Ntot, N_th_cosmo_true_unbinned.shape)
+        av_ln_lambda = av_ln_multiplicity_n(theta, model_grid_ln, delta = 1e-5)
+        Fisher_unBinned_Poissonian = Ntot_second_derivative - N_th_cosmo_true_unbinned * av_ln_lambda
+        cov_param_unBinned_Poissonian = np.linalg.inv(Fisher_unBinned_Poissonian)
+        return cov_param_unBinned_Poissonian
     
 def cov_Frequentist(cov_Bayesian, d_model, Sigma):
     r"""
