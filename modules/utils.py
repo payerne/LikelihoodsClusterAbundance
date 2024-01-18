@@ -26,7 +26,7 @@ def _make_ellipse(mean, cov, ax, level=0.95, color=None, label = None, ls = '-',
             ax.plot([],[],ls,color = color, label = label)
         ax.add_artist(ell)
 
-def corner_plot_Fisher(cov_param, mean, label_param, ax, color = None, set_axis = False):
+def corner_plot_Fisher(cov_param, mean, label_param, ax, settings = None, set_axis = False):
    
     r"""
     Attributes:
@@ -39,6 +39,8 @@ def corner_plot_Fisher(cov_param, mean, label_param, ax, color = None, set_axis 
         name of parameters
     ax: fig
         ax
+    settings: dict
+        dictionnary of plot setting
     color: str
         color of contours
     set_axis: Bool
@@ -48,16 +50,16 @@ def corner_plot_Fisher(cov_param, mean, label_param, ax, color = None, set_axis 
                             bottom=0.1, 
                             right=0.9, 
                             top=0.9, 
-                            wspace=0.1, 
-                            hspace=0.1)
+                            wspace=0.05, 
+                            hspace=0.05)
     n_param = len(mean)
     
     #plot ellipse and gaussian single variate distribution
     for j in range(n_param):
         for i in range(n_param):
             if i == j: 
-                x = np.linspace(-10, 100, 3000)
-                ax[i,i].plot(x, multivariate_normal.pdf(x, mean=mean[i], cov=cov_param[i,i]), color)
+                x = np.linspace(mean[i] - 10*cov_param[i,i]**.5, mean[i] + 10*cov_param[i,i]**.5, 3000)
+                ax[i,i].plot(x, multivariate_normal.pdf(x, mean=mean[i], cov=cov_param[i,i]), settings['color'])
                 continue
 
             if j > i: continue
@@ -69,9 +71,11 @@ def corner_plot_Fisher(cov_param, mean, label_param, ax, color = None, set_axis 
             cov_param_ij[1,0] = cov_param[i,j]
             cov_param_ij[0,1] = cov_param_ij[1,0]
             mean_ij = [mean[j], mean[i]]
-            _make_ellipse(mean_ij, cov_param_ij, ax[i,j], level=0.95, color='k', label = None, ls = '-', facecolor = color, alpha=.1)
-            
-            
+            _make_ellipse(mean_ij, cov_param_ij, ax[i,j], level=0.95, color=settings['color'], 
+                          label = None, ls = '-', facecolor = settings['color'], alpha=settings['alpha'])
+    
+    ax[0,1].plot([], [], settings['color'], label = settings['label'])
+    ax[0,1].legend(fontsize=settings['legend_size'])
     if set_axis == True:
         #set xlim and ylim
         n = 3
@@ -94,7 +98,7 @@ def corner_plot_Fisher(cov_param, mean, label_param, ax, color = None, set_axis 
         ax[0,0].set_xticks([])
         for i in range(n_param):
             for j in range(n_param):
-                ax[i,j].tick_params(axis='both', which = 'major', labelsize= 10)
+                ax[i,j].tick_params(axis='both', which = 'major', labelsize= settings['ticks_size'])
                 if j != 0: 
                     ax[i,j].set_yticks([])
                 if (i > 0)*(i < n_param-1):
@@ -106,9 +110,9 @@ def corner_plot_Fisher(cov_param, mean, label_param, ax, color = None, set_axis 
             
         #set labl
         for j in range(n_param):
-            ax[n_param-1, j].set_xlabel(label_param[j])
+            ax[n_param-1, j].set_xlabel(label_param[j], fontsize = settings['label_size'])
         for i in range(1, n_param):
-            ax[i, 0].set_ylabel(label_param[i])   
+            ax[i, 0].set_ylabel(label_param[i], fontsize = settings['label_size'])   
         
                     
         return None
@@ -119,7 +123,7 @@ def _map_f(args):
 
 def map(func, iter, ncores=3, ordered=True):
     
-    ncpu = ncores#multiprocessing.cpu_count()
+    ncpu = 3#multiprocessing.cpu_count()
     print('You have {0:1d} CPUs'.format(ncpu))
     pool = multiprocessing.Pool(processes=ncpu) 
     inputs = ((func,i) for i in iter)

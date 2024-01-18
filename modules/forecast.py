@@ -11,7 +11,7 @@ class Forecast():
     def __init__(self):
         return None
     
-    def Fisher_Matrix_Gaussian(self, theta, model, cov, delta = 1e-5):
+    def Fisher_Matrix_Gaussian(self, theta, model, inv_cov, delta = 1e-5):
         r"""
         Attributes:
         -----------
@@ -26,9 +26,8 @@ class Forecast():
         Fisher_matrix : array
             the Fisher matrix for the model parameters
        """
-        inv_cov=np.linalg.inv(cov)
         Fisher_matrix = np.zeros([len(theta), len(theta)])
-        shape_model = cov.diagonal().shape
+        shape_model = inv_cov.diagonal().shape
         fd = first_derivative(theta, model, shape_model, delta = 1e-5)
         self.fd = fd
         for i in range(len(theta)):
@@ -36,18 +35,30 @@ class Forecast():
                 Fisher_matrix[i,j] = np.sum(fd[i]*inv_cov.dot(fd[j]))
         return Fisher_matrix
     
-    def Fisher_Matrix_Gaussian_XY(self, SigmaX, SigmaY, d_model):
+    def Fisher_Matrix_Gaussian_XY(self, SigmaX, SigmaY_1, d_model, n_dim):
         r"""
         X: true
         Y: input
         d_model: model derivatives
         
         """
-        SigmaY_1 = np.linalg.inv(SigmaY)
-        res=np.zeros([2,2])
-        for i in range(2):
-            for j in range(2):
+        res=np.zeros([n_dim, n_dim])
+        for i in range(n_dim):
+            for j in range(n_dim):
                 res[i,j] = np.sum(d_model[i,:] * np.dot(SigmaY_1, np.dot(SigmaX, SigmaY_1) ).dot(d_model[j,:]))
+        return res
+    
+    def Fisher_Matrix_Gaussian_XX(self, SigmaX_1, d_model, n_dim):
+        r"""
+        X: true
+        Y: input
+        d_model: model derivatives
+        
+        """
+        res=np.zeros([n_dim, n_dim])
+        for i in range(n_dim):
+            for j in range(n_dim):
+                res[i,j] = np.sum(d_model[i,:] * SigmaX_1.dot(d_model[j,:]))
         return res
 
     def S_Fisher_Matrix(self, theta, model, cov, delta = 1e-5):
@@ -138,10 +149,13 @@ class Forecast():
         z_min, z_max = Z_bin
         logm_min, logm_max = logMass_bin
         """
+        z_min, z_max = Z_bin
+        logm_min, logm_max = logMass_bin
+        
         def model_Ntot(theta):
             Omegab = 0.048254
             Omegam, sigma8 = theta
-            cosmo_new = ccl.Cosmology(Omega_c = Omegam - Omegab, Omega_b = Omegab, h = 0.71, sigma8 = sigma8, n_s=0.96)
+            cosmo_new = ccl.Cosmology(Omega_c = Omegam - Omegab, Omega_b = Omegab, h = 0.6777, sigma8 = sigma8, n_s=0.96)
             massdef_new = ccl.halos.massdef.MassDef('vir', 'critical', c_m_relation=None)
             hmd_new = ccl.halos.MassFuncDespali16(cosmo_new, mass_def=massdef_new)
             CA.set_cosmology(cosmo = cosmo_new, hmd = hmd_new, massdef = massdef_new)
@@ -153,7 +167,7 @@ class Forecast():
         def model_grid_ln(theta):
             Omegab = 0.048254
             Omegam, sigma8 = theta
-            cosmo_new = ccl.Cosmology(Omega_c = Omegam - Omegab, Omega_b = Omegab, h = 0.71, sigma8 = sigma8, n_s=0.96)
+            cosmo_new = ccl.Cosmology(Omega_c = Omegam - Omegab, Omega_b = Omegab, h = 0.6777, sigma8 = sigma8, n_s=0.96)
             massdef_new = ccl.halos.massdef.MassDef('vir', 'critical', c_m_relation=None)
             hmd_new = ccl.halos.MassFuncDespali16(cosmo_new, mass_def=massdef_new)
             CA.set_cosmology(cosmo = cosmo_new, hmd = hmd_new, massdef = massdef_new)
@@ -163,7 +177,7 @@ class Forecast():
         N_th_cosmo_true_unbinned = model_Ntot(theta)
         def av_ln_multiplicity_n(theta, model, delta = 1e-5):
             model_true = np.exp(model(theta))
-            pdf = model_true/N_th_cosmo_true_unbinned
+            pdf = model_true
             index_z_grid = np.arange(len(CA.z_grid))
             index_logm_grid = np.arange(len(CA.logm_grid))
             mask_z = (CA.z_grid > z_min)*(CA.z_grid < z_max)
@@ -171,7 +185,7 @@ class Forecast():
             index_z_mask = index_z_grid[mask_z]
             index_logm_mask = index_logm_grid[mask_logm]
             res = np.zeros([len(theta),len(theta)])
-            sec_derivative = second_derivative(theta, model_grid_ln, model_true.shape)
+            sec_derivative = second_derivative(theta, model_grid_ln, model_true.shape, delta = delta)
             for i in range(len(theta)):
                 for j in range(len(theta)):
                     if i >= j:
@@ -181,11 +195,11 @@ class Forecast():
                         res[j,i] = res[i,j]
             return  res 
 
-        Ntot_second_derivative = second_derivative(theta, model_Ntot, N_th_cosmo_true_unbinned.shape)
-        av_ln_lambda = av_ln_multiplicity_n(theta, model_grid_ln, delta = 1e-5)
-        Fisher_unBinned_Poissonian = Ntot_second_derivative - N_th_cosmo_true_unbinned * av_ln_lambda
-        cov_param_unBinned_Poissonian = np.linalg.inv(Fisher_unBinned_Poissonian)
-        return cov_param_unBinned_Poissonian
+        Ntot_second_derivative = second_derivative(theta, model_Ntot, N_th_cosmo_true_unbinned.shape, delta = 1e-4)
+        av_ln_lambda = av_ln_multiplicity_n(theta, model_grid_ln, delta = 1e-4)
+        Fisher_unBinned_Poissonian = Ntot_second_derivative - av_ln_lambda
+        #cov_param_unBinned_Poissonian = np.linalg.inv(Fisher_unBinned_Poissonian)
+        return Fisher_unBinned_Poissonian
     
 def cov_Frequentist(cov_Bayesian, d_model, Sigma):
     r"""

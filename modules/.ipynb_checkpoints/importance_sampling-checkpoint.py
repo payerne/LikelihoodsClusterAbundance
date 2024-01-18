@@ -123,12 +123,17 @@ def compute_mean_covariance_importance_sampling(lnposterior, Nobs, Nth,
                                                   ordered=True))
         elif mp==False:
             lnposterior_tab=np.array([func(n_iter) for n_iter in range(n_points)])
-        res=lnposterior_tab
-        res=res-np.median(res)
-        w=np.exp(res)/q_val
-        w=w/np.max(w)
+
+        lnp=lnposterior_tab
+        print(lnp)
+        mask_none = lnp==None
+        print(len(mask_none[mask_none==True]))
+        lnw=lnp-np.log(q_val)
+        lnw_norm = lnw-np.median(lnw)
+        w=np.exp(lnw_norm)
+        w = w/np.max(w)
         mask = np.invert(np.isnan(w))
-        return utils.compute_mean_dispersion_from_sample(np.array(Om)[mask], 
+        return w, utils.compute_mean_dispersion_from_sample(np.array(Om)[mask], 
                                                          np.array(s8)[mask], 
                                                          np.array(w)[mask])
     else: return print('not implemented yet')

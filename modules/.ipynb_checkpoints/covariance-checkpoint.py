@@ -149,7 +149,7 @@ class Covariance_matrix():
         self.mu = mean
         return cov_N
     
-    def matter_fluctuation_amplitude_fullsky(self, Z_bin):
+    def matter_fluctuation_amplitude_fullsky(self, Z_bin, cosmo = None, approx = False):
         r"""
         Attributes:
         -----------
@@ -160,18 +160,29 @@ class Covariance_matrix():
         Sij: array
             matter fluctuation amplitude in redshift bins
         r"""
-        z_arr = np.linspace(0.05,2.5,3000)
-        nbins_T   = len(Z_bin)
-        windows_T = np.zeros((nbins_T,len(z_arr)))
-        for i, z_bin in enumerate(Z_bin):
-            Dz = z_bin[1]-z_bin[0]
-            z_arr_cut = z_arr[(z_arr > z_bin[0])*(z_arr < z_bin[1])]
-            for k, z in enumerate(z_arr):
-                if ((z>z_bin[0]) and (z<=z_bin[1])):
-                    windows_T[i,k] = 1/Dz  
-        #use F. Lacasa code PySSC for computing Sij
-        Sij = PySSC.Sij(z_arr,windows_T)
-        return Sij
+        if approx == False:
+            z_arr = np.linspace(0.05,2.5,3000)
+            nbins_T   = len(Z_bin)
+            windows_T = np.zeros((nbins_T,len(z_arr)))
+            for i, z_bin in enumerate(Z_bin):
+                Dz = z_bin[1]-z_bin[0]
+                z_arr_cut = z_arr[(z_arr > z_bin[0])*(z_arr < z_bin[1])]
+                for k, z in enumerate(z_arr):
+                    if ((z>z_bin[0]) and (z<=z_bin[1])):
+                        windows_T[i,k] = 1/Dz  
+            #use F. Lacasa code PySSC for computing Sij
+            Sij = PySSC.Sij(z_arr,windows_T)
+            return Sij
+            
+        else:
+            
+            default_cosmo_params = {'omega_b':cosmo['Omega_b']*cosmo['h']**2, 
+                                'omega_cdm':cosmo['Omega_c']*cosmo['h']**2, 
+                                'H0':cosmo['h']*100, 
+                                'n_s':cosmo['n_s'], 
+                                'sigma8': cosmo['sigma8'],
+                                'output' : 'mPk'}
+        return PySSC.Sij_alt_fullsky(Z_bin, [None], order=2, cosmo_params=default_cosmo_params, cosmo_Class=None, convention=0)
 
     def sample_covariance_full_sky(self, Z_bin, Proxy_bin, NBinned_halo_bias, Sij):
         r"""
@@ -199,8 +210,13 @@ class Covariance_matrix():
         len_mat = len(Z_bin) * len(Proxy_bin)
         cov_SSC = np.zeros([len_mat, len_mat])
         Nb = NBinned_halo_bias#np.multiply(Binned_Abundance, Binned_halo_bias)
+        Nbij = np.tensordot(Nb, Nb)
+        print('top')
         for i, Nbi in enumerate(Nb.flatten()):
+           # if i%100==0: print(i)
             for j, Nbj in enumerate(Nb.flatten()):
-                index_z_i, index_z_j = index_Z_flatten.flatten()[i], index_Z_flatten.flatten()[j]
-                cov_SSC[i,j] = Nbi * Nbj * Sij[index_z_i, index_z_j]
+                if i >= j:
+                    index_z_i, index_z_j = index_Z_flatten.flatten()[i], index_Z_flatten.flatten()[j]
+                    cov_SSC[i,j] = Nbi * Nbj * Sij[index_z_i, index_z_j]
+                    cov_SSC[j,i] = cov_SSC[i,j]
         return cov_SSC

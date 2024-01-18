@@ -2,12 +2,12 @@
 
 # SLURM options:
 
-#SBATCH --job-name=test    # Job name
+#SBATCH --job-name=pgm    # Job name
 #SBATCH --output=log.log
 #SBATCH --partition=htc               # Partition choice
 #SBATCH --ntasks=1                    # Run a single task (by default tasks == CPU)
 #SBATCH --mem=7000                    # Memory in MB per default
-#SBATCH --time=1-07:00:00             # 7 days by default on htc partition
+#SBATCH --time=1-00:00:00             # 7 days by default on htc partition
 #SBATCH --array=1-500
 
 N_JOB=$SLURM_ARRAY_TASK_MAX

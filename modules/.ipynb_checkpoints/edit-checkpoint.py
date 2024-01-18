@@ -1,6 +1,7 @@
 import numpy as np
 import pickle
 import h5py
+import os
 import pandas as pd
 
 def load_pickle(filename, **kwargs):
