@@ -11,7 +11,10 @@ This repository for studying cluster abundance likelihoods
 
 - The directory `\modules\Unbinned_likelihood_with_SSC\` is dedicated to include Super-Sample Covariance in the unbinned likelihood for cluster count cosmology. This analysis is detailles in [Payerne et al. (2024)](https://ui.adsabs.harvard.edu/abs/2024arXiv240110024P/abstract) and was also presented at the [Journées Rubin LSST France](https://indico.in2p3.fr/event/30995/contributions/131829/).
 
+## Requirements
 This repository uses the following dependencies:
 - [NumPy](https://www.numpy.org/)
 - [SciPy](https://scipy.org/)
-- [Matplotlib](https://matplotlib.org/) 
+- [Matplotlib](https://matplotlib.org/)
+- [CCL](https://ccl.readthedocs.io/en/latest/)
+- [PySSC](https://github.com/fabienlacasa/PySSC)
