@@ -50,7 +50,7 @@ class ClusterAbundance():
         hmf : array
             halo mass function for the corresponding masses and redshift
         """
-        hmf = self.hmd.get_mass_function(self.cosmo, 10**np.array(log10M), 1./(1. + z))
+        hmf = self.hmd.__call__(self.cosmo, 10**np.array(log10M), 1./(1. + z))
         return hmf
 
     def dVdzdOmega(self,z):
@@ -115,7 +115,7 @@ class ClusterAbundance():
         grid = np.zeros([len(self.logm_grid), len(self.z_grid)])
         self.halo_bias_model = halobiais
         for i, z in enumerate(self.z_grid):
-            hb = self.halo_bias_model.get_halo_bias(self.cosmo, 10**self.logm_grid, 1./(1. + z), mdef_other = self.massdef)
+            hb = self.halo_bias_model.__call__(self.cosmo, 10**self.logm_grid, 1./(1. + z), )#mdef_other = self.massdef)
             grid[:,i] = hb
         self.halo_biais = grid
         #self.halo_biais_interpolation = interpolate.interp2d(self.z_grid, 

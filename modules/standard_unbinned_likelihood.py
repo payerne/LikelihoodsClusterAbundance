@@ -12,4 +12,4 @@ def lnLikelihood_UnBinned_Poissonian(Nth, N_tot):
        --------
        lnL : log-likelihood for Poisson statistics
        """
-       return np.sum(np.log(Nth)) - N_tot
+       return np.sum(np.log(Nth)) - N_tot 

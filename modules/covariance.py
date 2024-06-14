@@ -211,7 +211,6 @@ class Covariance_matrix():
         cov_SSC = np.zeros([len_mat, len_mat])
         Nb = NBinned_halo_bias#np.multiply(Binned_Abundance, Binned_halo_bias)
         Nbij = np.tensordot(Nb, Nb)
-        print('top')
         for i, Nbi in enumerate(Nb.flatten()):
            # if i%100==0: print(i)
             for j, Nbj in enumerate(Nb.flatten()):

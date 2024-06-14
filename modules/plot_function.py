@@ -1,8 +1,31 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+def likelihood_load(file = None, only_one=False):
+    if only_one:
+        Om, y = np.load(file, allow_pickle=True)
+        lnL_tot = np.array([y[i] for i in range(len(Om))])
+        L = np.exp(lnL_tot-np.max(lnL_tot))
+        P = L/np.trapz(L, Om)
+        result = {}
+        result['Om'] = Om
+        result['P'] = P
+    else:
+        Om, y = np.load(file, allow_pickle=True)
+        lnL_tot = np.array([y[i][0] for i in range(len(Om))])
+        lnL_SN = np.array([y[i][1] for i in range(len(Om))])
+        L_SN = np.exp((lnL_SN - np.max(lnL_SN)))
+        P_SN = L_SN/np.trapz(L_SN, Om)
+        L_SSCSN = np.exp(lnL_tot-np.max(lnL_tot))
+        P_SSCSN = L_SSCSN/np.trapz(L_SSCSN, Om)
+        result = {}
+        result['Om'] = Om
+        result['PSN'] = P_SN
+        result['PSNSSC'] = P_SSCSN
+        result['lnW'] = lnL_tot - lnL_SN
+    return result
 
-def splot(file = None, name = None, color = None, ls = None, name_save=None):
+def splot(file = None, name = None, color = None, ls = None, name_save=None, range_plot_W = [0, 1]):
 
     lnL_tot = []
     lnL_SN = []
@@ -17,7 +40,7 @@ def splot(file = None, name = None, color = None, ls = None, name_save=None):
     fig, ax = plt.subplots(1, 2, figsize = (10, 4), sharex = True)
     
     ax[0].set_ylim(0., 120)
-    ax[1].set_ylim(0, 7)
+    ax[1].set_ylim(range_plot_W[0], range_plot_W[1])
     ax[0].set_xlim(0.27, 0.34)
     ax[0].vlines(0.30711, -3, 1020, zorder=0, color='k', lw=1, )
     ax[1].vlines(0.30711, -3, 1020, zorder=0, color='k', lw=1, )

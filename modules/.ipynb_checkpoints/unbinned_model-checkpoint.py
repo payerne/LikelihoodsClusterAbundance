@@ -25,11 +25,11 @@ class Mapping():
             halo mass distribution object from CCL
         """
         self.cosmo = cosmo
-        self.massdef = ccl.halos.massdef.MassDef('vir', 'critical', c_m_relation=None)
-        self.hmd = ccl.halos.hmfunc.MassFuncDespali16(self.cosmo, mass_def=self.massdef)
+        self.massdef = ccl.halos.massdef.MassDef('vir', 'critical',)# c_m_relation=None)
+        self.hmd = ccl.halos.hmfunc.MassFuncDespali16(mass_def=self.massdef)
         self.abundance = abundance.ClusterAbundance()
         self.abundance.set_cosmology(cosmo = self.cosmo, massdef = self.massdef, hmd = self.hmd)
-        self.halo_bias = ccl.halos.hbias.HaloBiasTinker10(self.cosmo, mass_def= self.massdef, mass_def_strict=True)
+        self.halo_bias = ccl.halos.hbias.HaloBiasTinker10(mass_def= self.massdef, mass_def_strict=True)
         
     def compute_halo_bias_map(self, z_grid, logm_grid):
         
@@ -68,9 +68,6 @@ class Mapping():
         self.Nb_map_interp_fct = scipy.interpolate.RectBivariateSpline(logm_grid, z_grid, dN_dlogMdz_map * halo_bias_map)
         self.N_map_interp_fct = scipy.interpolate.RectBivariateSpline(logm_grid, z_grid, dN_dlogMdz_map)
         self.sigma2_interp_fct = scipy.interpolate.RectBivariateSpline(z_grid, z_grid, sigma2_map)
-        
-    #def compute_sampled_maps(z_sample, logm_sample):   
-    #  self.b_samples = self.b_map_interp_fct(logm_sample, z_sample, grid = False)
         
     def create_reduced_sample(self, z_sample, logm_sample, n_samples):
 
@@ -148,5 +145,7 @@ class Mapping():
             
             
         
-        
+                
+    #def compute_sampled_maps(z_sample, logm_sample):   
+    #  self.b_samples = self.b_map_interp_fct(logm_sample, z_sample, grid = False)
         

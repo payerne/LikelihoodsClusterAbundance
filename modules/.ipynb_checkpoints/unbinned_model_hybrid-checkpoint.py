@@ -17,11 +17,11 @@ class Mapping():
             input cosmology from CCL
         """
         self.cosmo = cosmo
-        self.massdef = ccl.halos.massdef.MassDef('vir', 'critical', c_m_relation=None)
-        self.hmd = ccl.halos.hmfunc.MassFuncDespali16(self.cosmo, mass_def=self.massdef)
+        self.massdef = ccl.halos.massdef.MassDef('vir', 'critical')
+        self.hmd = ccl.halos.hmfunc.MassFuncDespali16(mass_def=self.massdef)
         self.abundance = abundance.ClusterAbundance()
         self.abundance.set_cosmology(cosmo = self.cosmo, massdef = self.massdef, hmd = self.hmd)
-        self.halo_bias = ccl.halos.hbias.HaloBiasTinker10(self.cosmo, mass_def= self.massdef, mass_def_strict=True)
+        self.halo_bias = ccl.halos.hbias.HaloBiasTinker10(mass_def= self.massdef, mass_def_strict=True)
         
     def compute_Sij_map(self, redshift_intervals, fsky):
         r"""
@@ -89,7 +89,8 @@ class Mapping():
         Returns:
         -------
         hmf_tabulated : array
-            mapping of the halo mass function (dn/dM) * partial derivative volume (dV/dzdOmega) * Omega_S over the redshift and mass two-dimensional grid (size m*n)
+            mapping of the halo mass function (dn/dM) * partial derivative volume (dV/dzdOmega) * Omega_S
+            over the redshift and mass two-dimensional grid (size m*n)
         """
         self.abundance.compute_multiplicity_grid_MZ(z_grid, logm_grid) 
         return self.abundance.dN_dzdlogMdOmega * fsky * 4 * np.pi
@@ -121,14 +122,14 @@ class Mapping():
         dNdm_zbins = []
         integrand = dN_dlogMdz_map * halo_bias_map
         for redshift_range in redshift_intervals:
-            mask = (z_grid > redshift_range[0])*(z_grid < redshift_range[1])
+            mask = (z_grid > redshift_range[0])*(z_grid <= redshift_range[1])
             bdNdm_zbins.append(np.trapz(integrand[:,mask], z_grid[mask]))
             dNdm_zbins.append(np.trapz(dN_dlogMdz_map[:,mask], z_grid[mask]))
         self.bdNdm_zbins = bdNdm_zbins
         self.dNdm_zbins = dNdm_zbins
         
     def compute_Nb_zbins(self, z_grid, logm_grid, dN_dlogMdz_map, halo_bias_map, redshift_intervals, fsky):
-         r"""
+        r"""
         Attributes:
         ----------
         z_grid : array
@@ -181,10 +182,8 @@ class Mapping():
         N_zbins = []
         for i, redshift_range in enumerate(redshift_intervals):
             Nhalo_bias_zbins.append(scipy.interpolate.interp1d(logm_grid, self.bdNdm_zbins[i], kind='cubic'))
-            halo_bias_zbins.append(scipy.interpolate.interp1d(logm_grid, self.bdNdm_zbins[i]/self.dNdm_zbins[i], kind='cubic'))
             N_zbins.append(scipy.interpolate.interp1d(logm_grid, self.dNdm_zbins[i], kind='cubic'))
         self.Nhalo_bias_zbins = Nhalo_bias_zbins
-        self.halo_bias_zbins = halo_bias_zbins
         self.N_zbins = N_zbins
         
     def compute_N_th(self, z_grid, logm_grid, dN_dlogMdz_map):
@@ -226,54 +225,11 @@ class Mapping():
         
         dNdm_sample = []
         for i, redshift_range in enumerate(redshift_intervals):
-            mask_redshift = (z_sample > redshift_range[0])*(z_sample < redshift_range[1])
+            mask_redshift = (z_sample > redshift_range[0])*(z_sample <= redshift_range[1])
             dNdm_sample.extend(self.N_zbins[i](logm_sample[mask_redshift]))
         
         return np.array(dNdm_sample)
-    
-    
-    def compute_full_SSC_hybrid(self, z_grid, logm_grid, dN_dlogMdz_map, halo_bias_map, redshift_intervals, Sij, fsky, z_sample, logm_sample):
-        r"""
-        Attributes:
-        ----------
-        z_grid : array
-            redshift grid (size n)
-        logm_grid : array
-            logarithm mass grid (size m)
-        dN_dlogMdz_map : array
-            mapping of the abundance per redshift and logarithmic mass bins over the z_grid and logm_grid
-        halo_bias_map : array
-            mapping of the halo bias per redshift and logarithmic mass bins over the z_grid and logm_grid
-        redshift_intervals : array
-            list of redshift intervals
-        Sij : array
-            Covariance matrix of matter density fluctuations
-        f_sky : float
-            sky fraction < 1
-        z_sample : array
-            cluster redshifts
-        logm_sample : array
-            cluster logarithmic masses
-        Returns:
-        -------
-        lnW : float
-            SSC contribution to the Poisson likelihood derived from the methodology in Takada & Spergel (2014)
-        """
-        deltaNb = []
-        Nb2 = []
-        Unity = np.eye(len(redshift_intervals))
-        C = np.zeros([len(redshift_intervals), len(redshift_intervals)])
-        for i, redshift_range_1 in enumerate(redshift_intervals):
-            mask_redshift_1 = (z_sample > redshift_range_1[0])*(z_sample < redshift_range_1[1])
-            b_sample_i = self.halo_bias_zbins[i](logm_sample[mask_redshift_1])
-            Nb_obs_i = np.sum(b_sample_i)
-            Nb_th_i = self.Nb[i]
-            deltaNb.append(Nb_obs_i - Nb_th_i)
-            Nb2_obs_i = np.sum(b_sample_i**2)
-            Nb2.append(Nb2_obs_i)
-            
-        W = 1 + (1/2)*(np.sum(deltaNb * np.dot(Sij, deltaNb)) - np.sum(np.diag(Sij) * Nb2))
-        return np.log(W)
+
     
     def compute_full_SSC_hybrid_garrell(self, z_grid, logm_grid, dN_dlogMdz_map, halo_bias_map, redshift_intervals, Sij, fsky, z_sample, logm_sample):
         r"""
@@ -308,8 +264,11 @@ class Mapping():
         Unity = np.eye(len(redshift_intervals))
         C = np.zeros([len(redshift_intervals), len(redshift_intervals)])
         for i, redshift_range_1 in enumerate(redshift_intervals):
-            mask_redshift_1 = (z_sample > redshift_range_1[0])*(z_sample < redshift_range_1[1])
-            b_sample_i = self.halo_bias_zbins[i](logm_sample[mask_redshift_1])
+            mask_redshift_1 = (z_sample > redshift_range_1[0])*(z_sample <= redshift_range_1[1])
+            n_clusters = np.sum(mask_redshift_1)
+            Nb_sample_i = self.Nhalo_bias_zbins[i](logm_sample[mask_redshift_1])
+            N_sample_i = self.N_zbins[i](logm_sample[mask_redshift_1])
+            b_sample_i = np.array([Nb_sample_i[k]/N_sample_i[k] if N_sample_i[k] != 0 else 0 for k in range(n_clusters)])
             Nb_obs_i = np.sum(b_sample_i)
             Nb_th_i = self.Nb[i]
             deltaNb.append(Nb_obs_i - Nb_th_i)
@@ -318,7 +277,6 @@ class Mapping():
         for i, redshift_range_1 in enumerate(redshift_intervals):
             for j, redshift_range_2 in enumerate(redshift_intervals):
                 C[i,j] = 0.5*(Sij_inv[i,j] + Nb2[i]*Unity[i,j])
-        
         Cinv = np.linalg.inv(C)
         detSinv = np.linalg.det(Sij_inv)
         detC = np.linalg.det(C)
@@ -421,4 +379,50 @@ class Mapping():
         
         
         
-        
+            
+    def compute_full_SSC_hybrid(self, z_grid, logm_grid, dN_dlogMdz_map, halo_bias_map, redshift_intervals, Sij, fsky, z_sample, logm_sample):
+        r"""
+        Attributes:
+        ----------
+        z_grid : array
+            redshift grid (size n)
+        logm_grid : array
+            logarithm mass grid (size m)
+        dN_dlogMdz_map : array
+            mapping of the abundance per redshift and logarithmic mass bins over the z_grid and logm_grid
+        halo_bias_map : array
+            mapping of the halo bias per redshift and logarithmic mass bins over the z_grid and logm_grid
+        redshift_intervals : array
+            list of redshift intervals
+        Sij : array
+            Covariance matrix of matter density fluctuations
+        f_sky : float
+            sky fraction < 1
+        z_sample : array
+            cluster redshifts
+        logm_sample : array
+            cluster logarithmic masses
+        Returns:
+        -------
+        lnW : float
+            SSC contribution to the Poisson likelihood derived from the methodology in Takada & Spergel (2014)
+        """
+        deltaNb = []
+        Nb2 = []
+        Unity = np.eye(len(redshift_intervals))
+        C = np.zeros([len(redshift_intervals), len(redshift_intervals)])
+        for i, redshift_range_1 in enumerate(redshift_intervals):
+            mask_redshift_1 = (z_sample > redshift_range_1[0])*(z_sample < redshift_range_1[1])
+            n_clusters = np.sum(mask_redshift_1)
+            Nb_sample_i = self.Nhalo_bias_zbins[i](logm_sample[mask_redshift_1])
+            N_sample_i = self.N_zbins[i](logm_sample[mask_redshift_1])
+            b_sample_i = np.array([Nb_sample_i[k]/N_sample_i[k] if N_sample_i[k] != 0 else 0 for k in range(n_clusters)])
+            print(b_sample_i)
+            Nb_obs_i = np.sum(b_sample_i)
+            Nb_th_i = self.Nb[i]
+            deltaNb.append(Nb_obs_i - Nb_th_i)
+            Nb2_obs_i = np.sum(b_sample_i**2)
+            Nb2.append(Nb2_obs_i)
+            
+        W = 1 + (1/2)*(np.sum(deltaNb * np.dot(Sij, deltaNb)) - np.sum(np.diag(Sij) * Nb2))
+        return np.log(W)

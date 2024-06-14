@@ -232,6 +232,21 @@ class lnLikelihood():
         delta_N = np.sum(Sbb_matrix.diagonal()*N_obs)
 
         return np.log( 1 + 0.5 * (chi - delta_N))
+    
+    def lnLikelihood_UnBinned_Poissonian(self, Nth, N_tot):
+       r"""
+       Attributes:
+       -----------
+      Nth: array
+           count cosmological prediction in each bin
+       N_tot: float
+           cosmological prediction for total number of cluster
+       Returns:
+       --------
+       lnL : log-likelihood for Poisson statistics
+       """
+       return np.sum(np.log(Nth)) - N_tot 
+
         
     #def lnLikelihood_Binned_MPG_approx(self, N_th_matrix, N_obs_matrix, sample_covariance, single_variate = False):
     #    r"""

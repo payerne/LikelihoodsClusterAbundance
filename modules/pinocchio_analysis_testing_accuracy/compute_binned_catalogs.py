@@ -7,6 +7,7 @@ import pickle
 import astropy.units as u
 from astropy.table import Table
 from astropy.coordinates import SkyCoord
+from scipy import stats
 
 def binning(corner): return [[corner[i],corner[i+1]] for i in range(len(corner)-1)]
 
